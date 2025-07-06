@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>팀 선택 및 닉네임 설정</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-bottom: 30px;
+      color: #333;
+    }
+    .teams {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 30px;
+    }
+    .team-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 150px;
+      cursor: pointer;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      user-select: none;
+      position: relative;
+    }
+    .team-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      z-index: 10;
+    }
+    .team-card.selected {
+      border: 3px solid #1976d2;
+      box-shadow: 0 0 18px 4px #1976d2;
+      z-index: 11;
+    }
+    .team-logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      filter: drop-shadow(0 0 4px rgba(25, 118, 210, 0.6));
+      animation: glowPulse 3s ease-in-out infinite;
+    }
+    @keyframes glowPulse {
+      0%, 100% { filter: drop-shadow(0 0 4px rgba(25, 118, 210, 0.6)); }
+      50% { filter: drop-shadow(0 0 12px rgba(25, 118, 210, 0.9)); }
+    }
+    input[type="text"] {
+      padding: 12px 15px;
+      width: 320px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1.5px solid #ccc;
+      outline: none;
+      margin-bottom: 20px;
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus {
+      border-color: #1976d2;
+    }
+    button {
+      background-color: #1976d2;
+      border: none;
+      color: white;
+      padding: 14px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 320px;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    button:disabled {
+      background-color: #999;
+      cursor: default;
+    }
+    button:hover:not(:disabled) {
+      background-color: #0d47a1;
+    }
+    #status {
+      margin-top: 15px;
+      color: #d32f2f;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>팀을 선택하고 닉네임을 설정하세요</h1>
+
+  <div class="teams">
+    <div class="team-card" data-team="The Grand" title="The Grand">
+      <svg class="team-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="gradGrand" cx="50%" cy="50%" r="70%">
+            <stop offset="0%" stop-color="#42a5f5"/>
+            <stop offset="100%" stop-color="#1e88e5"/>
+          </radialGradient>
+          <filter id="shadowGrand" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#1e88e5" flood-opacity="0.7"/>
+          </filter>
+        </defs>
+        <circle cx="32" cy="32" r="30" fill="url(#gradGrand)" filter="url(#shadowGrand)"/>
+        <path d="M16 48 L32 16 L48 48 Z" fill="white" filter="url(#shadowGrand)" />
+      </svg>
+      <div>The Grand</div>
+    </div>
+
+    <div class="team-card" data-team="UnVulnerable" title="UnVulnerable">
+      <svg class="team-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradUnv" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#66bb6a"/>
+            <stop offset="100%" stop-color="#388e3c"/>
+          </linearGradient>
+          <filter id="shadowUnv" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#2e7d32" flood-opacity="0.7"/>
+          </filter>
+        </defs>
+        <rect x="14" y="14" width="36" height="36" fill="url(#gradUnv)" rx="8" ry="8" filter="url(#shadowUnv)" />
+        <circle cx="32" cy="32" r="12" fill="white" filter="url(#shadowUnv)" />
+      </svg>
+      <div>UnVulnerable</div>
+    </div>
+
+    <div class="team-card" data-team="The Precise" title="The Precise">
+      <svg class="team-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradPrecise" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ffca28"/>
+            <stop offset="100%" stop-color="#fbc02d"/>
+          </linearGradient>
+          <filter id="shadowPrecise" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#f9a825" flood-opacity="0.7"/>
+          </filter>
+        </defs>
+        <circle cx="32" cy="32" r="30" fill="url(#gradPrecise)" filter="url(#shadowPrecise)"/>
+        <line x1="16" y1="48" x2="48" y2="16" stroke="white" stroke-width="6" filter="url(#shadowPrecise)" stroke-linecap="round"/>
+      </svg>
+      <div>The Precise</div>
+    </div>
+
+    <div class="team-card" data-team="The Finale" title="The Finale">
+      <svg class="team-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="gradFinale" cx="50%" cy="50%" r="80%">
+            <stop offset="0%" stop-color="#ef5350"/>
+            <stop offset="100%" stop-color="#b71c1c"/>
+          </radialGradient>
+          <filter id="shadowFinale" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#b71c1c" flood-opacity="0.7"/>
+          </filter>
+        </defs>
+        <circle cx="32" cy="32" r="30" fill="url(#gradFinale)" filter="url(#shadowFinale)"/>
+        <path d="M24 24 L40 24 L32 40 Z" fill="white" filter="url(#shadowFinale)"/>
+      </svg>
+      <div>The Finale</div>
+    </div>
+  </div>
+
+  <input type="text" id="nickname" placeholder="닉네임을 입력하세요 (3~12자)" maxlength="12" />
+  <button id="join-btn" disabled>팀에 가입하기</button>
+
+  <div id="status"></div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, set, onDisconnect, update } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCkH8VYctflhZQh5_g_QQ2X9B-dt8h_uSA",
+      authDomain: "chessstrock.firebaseapp.com",
+      projectId: "chessstrock",
+      storageBucket: "chessstrock.firebasestorage.app",
+      messagingSenderId: "1041655877297",
+      appId: "1:1041655877297:web:d35e9b5838ea2fcc5a1c90",
+      measurementId: "G-6JCL5Z363K"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // auth 초기화 이후에 onAuthStateChanged 호출 (여기가 핵심!)
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        const userOnlineRef = ref(db, 'users/' + user.uid + '/online');
+        update(ref(db, 'users/' + user.uid), { online: true });
+        onDisconnect(userOnlineRef).set(false);
+      }
+    });
+
+    const teamCards = document.querySelectorAll('.team-card');
+    const nicknameInput = document.getElementById('nickname');
+    const joinBtn = document.getElementById('join-btn');
+    const statusDiv = document.getElementById('status');
+
+    let selectedTeam = null;
+
+    // 팀 선택
+    teamCards.forEach(card => {
+      card.addEventListener('click', () => {
+        teamCards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedTeam = card.getAttribute('data-team');
+        checkReady();
+      });
+    });
+
+    // 닉네임 입력 체크
+    nicknameInput.addEventListener('input', () => {
+      checkReady();
+    });
+
+    // 가입 버튼 활성화 조건 체크
+    function checkReady() {
+      const nick = nicknameInput.value.trim();
+      if (selectedTeam && nick.length >= 3 && nick.length <= 12) {
+        joinBtn.disabled = false;
+        statusDiv.textContent = '';
+      } else {
+        joinBtn.disabled = true;
+        if (nick.length > 12) {
+          statusDiv.textContent = '닉네임은 최대 12자까지 가능합니다.';
+        } else {
+          statusDiv.textContent = '';
+        }
+      }
+    }
+
+    // 가입 버튼 클릭 시 처리
+    joinBtn.addEventListener('click', async () => {
+      const nick = nicknameInput.value.trim();
+      if (!selectedTeam || nick.length < 3 || nick.length > 12) {
+        statusDiv.textContent = '팀과 닉네임을 올바르게 선택해주세요.';
+        return;
+      }
+
+      const user = auth.currentUser;
+      if (!user) {
+        statusDiv.textContent = '로그인이 필요합니다.';
+        return;
+      }
+
+      statusDiv.textContent = '가입 처리 중... 잠시만 기다려주세요.';
+
+      try {
+        await set(ref(db, 'users/' + user.uid), {
+          nickname: nick,
+          team: selectedTeam,
+          email: user.email || null,
+          joinedAt: Date.now(),
+          online: true  // 가입 시점에 온라인 상태 기본값 추가
+        });
+        statusDiv.textContent = '가입 완료! 메인 화면으로 이동합니다.';
+        setTimeout(() => {
+          window.location.href = 'main.html';
+        }, 1000);
+      } catch (error) {
+        statusDiv.textContent = '가입 중 오류가 발생했습니다: ' + error.message;
+      }
+    });
+  </script>
+</body>
+</html>

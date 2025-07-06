@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess - 메인 게임 화면</title>
+  <style>
+    /* 기존 CSS 유지 */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: #1976d2;
+      color: white;
+      padding: 12px 20px;
+      font-size: 1.2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #welcome {
+      font-weight: bold;
+      font-size: 1rem;
+    }
+    #logout-btn {
+      background: #f44336;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    main {
+      flex: 1;
+      padding: 20px;
+      text-align: center;
+    }
+    #team-info {
+      font-size: 1rem;
+      margin-bottom: 15px;
+    }
+    #team-logo {
+      width: 80px;
+      height: 80px;
+      margin: 10px auto 20px;
+      display: block;
+    }
+    #game-area {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+      padding: 30px;
+      min-height: 300px;
+    }
+    #battle-request-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #battle-modal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+    #battle-list {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 400px;
+    }
+    #user-search {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    #user-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .user-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #eee;
+      padding: 8px 0;
+    }
+    .user-info {
+      display: flex;
+      align-items: center;
+    }
+    .online-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background-color: gray;
+      border: 1.5px solid #ccc;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    .online {
+      background-color: #4caf50;
+      border-color: #388e3c;
+      box-shadow: 0 0 6px #4caf50;
+    }
+    .offline {
+      background-color: gray;
+      border-color: #666;
+      box-shadow: none;
+    }
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      #logout-btn {
+        margin-top: 10px;
+        width: 100%;
+      }
+      #game-area {
+        padding: 20px;
+      }
+    }
+    .battle-request-card {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-left: 5px solid #1976d2;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      text-align: left;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .battle-request-card button {
+      margin-right: 10px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .battle-request-card button:first-of-type {
+      background: #4caf50;
+      color: white;
+    }
+    .battle-request-card button:last-of-type {
+      background: #f44336;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div id="welcome">환영합니다, 사용자님!</div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button id="notification-btn" title="알림 보기" style="background:#ffc107; border:none; color:#333; padding:6px 12px; border-radius:6px; cursor:pointer;">
+        알림
+      </button>
+      <button id="logout-btn">로그아웃</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="team-info">팀: 알 수 없음</div>
+    <svg id="team-logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style="display: none;"></svg>
+    <div id="game-area">
+      <h2>게임이 곧 시작됩니다!</h2>
+
+      <button id="battle-request-btn">전투 신청</button>
+
+      <div id="request-log" style="margin-top: 20px;"></div>
+
+      <div style="margin-top: 40px; text-align: left;">
+        <h3>진행 중인 게임</h3>
+        <div id="match-list">
+          <p>불러오는 중...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="battle-modal">
+    <div id="battle-list">
+      <h3>온라인 사용자 목록</h3>
+      <input type="text" id="user-search" placeholder="닉네임 검색" />
+      <ul id="user-list"></ul>
+      <button onclick="document.getElementById('battle-modal').style.display='none'">닫기</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, get, onValue, child, set, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCkH8VYctflhZQh5_g_QQ2X9B-dt8h_uSA",
+      authDomain: "chessstrock.firebaseapp.com",
+      projectId: "chessstrock",
+      storageBucket: "chessstrock.firebasestorage.app",
+      messagingSenderId: "1041655877297",
+      appId: "1:1041655877297:web:d35e9b5838ea2fcc5a1c90",
+      measurementId: "G-6JCL5Z363K"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    setPersistence(auth, browserLocalPersistence);
+
+    
+
+    let currentUser = null;
+    let currentUserNickname = '';
+    let currentUserTeam = '';
+    let isListeningToMatches = false;
+
+
+    const welcomeDiv = document.getElementById('welcome');
+    const teamInfoDiv = document.getElementById('team-info');
+    const teamLogoSvg = document.getElementById('team-logo');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    const teamLogos = {
+      "The Grand": `
+        <circle cx="32" cy="32" r="30" stroke="#1976d2" stroke-width="4" fill="none"/>
+        <path d="M16 48 L32 16 L48 48 Z" fill="#1976d2"/>
+      `,
+      "UnVulnerable": `
+        <rect x="14" y="14" width="36" height="36" stroke="#1976d2" stroke-width="4" fill="none" />
+        <circle cx="32" cy="32" r="12" fill="#1976d2" />
+      `,
+      "The Precise": `
+        <circle cx="32" cy="32" r="30" stroke="#1976d2" stroke-width="4" fill="none"/>
+        <line x1="16" y1="48" x2="48" y2="16" stroke="#1976d2" stroke-width="5"/>
+      `,
+      "The Finale": `
+        <circle cx="32" cy="32" r="30" stroke="#1976d2" stroke-width="4" fill="none"/>
+        <path d="M24 24 L40 24 L32 40 Z" fill="#1976d2"/>
+      `
+    };
+
+    logoutBtn.addEventListener('click', () => {
+      signOut(auth).then(() => {
+        window.location.href = 'index.html';
+      }).catch(err => {
+        console.error('로그아웃 실패:', err);
+      });
+    });
+
+    function loadUserList() {
+      const userList = document.getElementById('user-list');
+      onValue(ref(db, 'users'), (snapshot) => {
+        userList.innerHTML = '';
+
+        if (!snapshot.exists()) {
+          userList.innerHTML = '<li>사용자 데이터가 없습니다.</li>';
+          return;
+        }
+
+        snapshot.forEach(childSnap => {
+          const uid = childSnap.key;
+          const user = childSnap.val();
+
+          const isCurrentUserReady = currentUser !== null && currentUserNickname && currentUserTeam;
+          const isOnline = !!user.online;
+          const onlineClass = isOnline ? 'online' : 'offline';
+
+          if (uid === (currentUser?.uid || '')) return;
+
+          const li = document.createElement('li');
+          li.className = 'user-item';
+          li.innerHTML = `
+            <div class="user-info">
+              <div class="online-indicator ${onlineClass}"></div>
+              ${user.nickname} (${user.team})
+            </div>
+            <button ${isCurrentUserReady ? '' : 'disabled'} onclick="sendBattleRequest('${uid}', '${currentUserNickname}', '${currentUserTeam}')">신청</button>
+          `;
+          userList.appendChild(li);
+        });
+
+        if (userList.children.length === 0) {
+          userList.innerHTML = '<li>검색된 사용자가 없습니다.</li>';
+        }
+      }, error => {
+        console.error('users 경로 데이터 로드 실패:', error);
+      });
+    }
+
+    window.sendBattleRequest = function (targetUid, fromNickname, fromTeam) {
+      if (!targetUid || !fromNickname || !fromTeam) {
+        alert('전투 요청 정보를 확인해주세요.');
+        return;
+      }
+      const reqRef = ref(db, `battle_requests/${targetUid}/${currentUser.uid}`);
+      set(reqRef, {
+        from: fromNickname,
+        team: fromTeam,
+        timestamp: Date.now()
+      }).then(() => {
+        window.location.href = 'info.html';
+      }).catch(error => {
+        alert('전투 요청 실패: ' + error.message);
+      });
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      console.log("✅ onAuthStateChanged triggered", user);
+      if (!user) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      currentUser = user;
+
+      try {
+        const snapshot = await get(child(ref(db), `users/${user.uid}`));
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          currentUserNickname = data.nickname || '';
+          currentUserTeam = data.team || '';
+
+          welcomeDiv.textContent = `환영합니다, ${currentUserNickname}님!`;
+          teamInfoDiv.textContent = `팀: ${currentUserTeam}`;
+
+          const logo = teamLogos[currentUserTeam];
+          teamLogoSvg.innerHTML = logo || '';
+          teamLogoSvg.style.display = logo ? 'block' : 'none';
+
+          const onlineRef = ref(db, `users/${user.uid}/online`);
+          await set(onlineRef, true);
+          onDisconnect(onlineRef).set(false);
+
+          loadUserList();
+          loadUserMatches();
+        }
+      } catch (error) {
+        console.error('사용자 정보 로딩 실패:', error);
+      }
+    });
+
+    document.getElementById('battle-request-btn').addEventListener('click', () => {
+      document.getElementById('battle-modal').style.display = 'flex';
+    });
+
+    document.getElementById('user-search').addEventListener('input', function () {
+      const keyword = this.value.toLowerCase();
+      const items = document.querySelectorAll('.user-item');
+      items.forEach(item => {
+        item.style.display = item.textContent.toLowerCase().includes(keyword) ? 'flex' : 'none';
+      });
+    });
+
+    document.getElementById('notification-btn').addEventListener('click', () => {
+      window.location.href = 'info.html';
+    });
+
+    function loadUserMatches() {
+      const matchList = document.getElementById('match-list');
+      const uid = currentUser?.uid;
+      // loadUserMatches() 함수 안, matches 루프 처리 도중 아래 조건이 성립할 때 색상 부여
+
+       if (!uid || isListeningToMatches) return;
+  isListeningToMatches = true;
+
+
+      console.log("🎯 loadUserMatches 호출됨");
+      console.log("📌 currentUser.uid:", uid);
+
+      if (!uid) {
+        console.error("❌ currentUser.uid 없음. 아직 인증 안됐을 수도 있음.");
+        return;
+      }
+
+      const matchesRef = ref(db, 'matches');
+      console.log("🔗 matchesRef 생성 완료:", matchesRef);
+
+      // matchList 초기화
+      matchList.innerHTML = '<p>불러오는 중...</p>';
+
+      onValue(matchesRef, (snapshot) => {
+        console.log("🔥 matches snapshot received");
+        const data = snapshot.val();
+        console.log("📦 matches 전체 데이터:", data);
+
+        // 렌더링 전에 초기화
+        matchList.innerHTML = '';
+
+        if (!data) {
+          matchList.innerHTML = '<p>진행 중인 게임이 없습니다.</p>';
+          return;
+        }
+
+        let hasMatches = false;
+
+        for (const matchId in data) {
+          const match = data[matchId];
+          if (!match || !match.player1 || !match.player2) {
+            console.warn("⚠ match 데이터 누락됨:", matchId);
+            continue;
+          }
+
+        const accepted = match.accepted || {};
+const p1 = match.player1?.uid;
+const p2 = match.player2?.uid;
+ if (
+  match.accepted && match.accepted[p1] && match.accepted[p2] &&
+  (!match.playerColors || Object.keys(match.playerColors).length === 0)
+) {
+  const assignedColors = Math.random() < 0.5
+    ? { [p1]: 'white', [p2]: 'black' }
+    : { [p1]: 'black', [p2]: 'white' };
+
+  const colorsRef = ref(db, `matches/${matchId}/playerColors`);
+  set(colorsRef, assignedColors).then(() => {
+    console.log(`🎨 색상 배정 완료 for match ${matchId}`, assignedColors);
+  }).catch((err) => {
+    console.error("❌ 색상 배정 실패:", err);
+  });
+}
+
+          const isInMatch = match.player1.uid === uid || match.player2.uid === uid;
+          const isActive = match.status === 'waiting' || match.status === 'playing';
+
+          console.log(`✅ isInMatch: ${isInMatch}, isActive: ${isActive}, uid: ${uid}`);
+
+          if (!isInMatch || !isActive) continue;
+
+          hasMatches = true;
+
+          const opponent = match.player1.uid === uid ? match.player2 : match.player1;
+          const statusLabel = match.status === 'waiting' ? '대기 중' : '진행 중';
+
+          const card = document.createElement('div');
+          card.className = 'battle-request-card';
+          card.innerHTML = `
+            <p><strong>${opponent.nickname}</strong> (${opponent.team}) 과의 게임 - <em>${statusLabel}</em></p>
+            <button onclick="enterGame('${matchId}')">게임 입장</button>
+          `;
+          matchList.appendChild(card);
+        }
+
+
+
+        if (!hasMatches) {
+          matchList.innerHTML = '<p>진행 중인 게임이 없습니다.</p>';
+        }
+      }, (error) => {
+        console.error('matches 경로 데이터 로드 실패:', error);
+        matchList.innerHTML = '<p>게임 목록을 불러오는 데 실패했습니다.</p>';
+      });
+    }
+
+    window.enterGame = function(matchId) {
+      window.location.href = `chess.html?matchId=${matchId}`;
+    };
+  </script>
+</body>
+</html>

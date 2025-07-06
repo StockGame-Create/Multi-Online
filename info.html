@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>전투 요청 정보</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      padding: 20px;
+    }
+    .request-card {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-left: 5px solid #1976d2;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .request-card button {
+      margin-right: 8px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .accept-btn { background: #4caf50; color: white; }
+    .reject-btn { background: #f44336; color: white; }
+  </style>
+</head>
+<body>
+
+<h2>받은 전투 요청</h2>
+<div id="request-area">로딩 중...</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, onValue, remove, set, get, child, onDisconnect } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCkH8VYctflhZQh5_g_QQ2X9B-dt8h_uSA",
+  authDomain: "chessstrock.firebaseapp.com",
+  projectId: "chessstrock",
+  storageBucket: "chessstrock.appspot.com",
+  messagingSenderId: "1041655877297",
+  appId: "1:1041655877297:web:d35e9b5838ea2fcc5a1c90"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+let currentUser = null;
+let currentNickname = '';
+let currentTeam = '';
+
+function loadBattleRequests() {
+  const area = document.getElementById("request-area");
+  const uid = currentUser.uid;
+  const reqRef = ref(db, `battle_requests/${uid}`);
+
+  onValue(reqRef, (snapshot) => {
+    area.innerHTML = '';
+
+    if (!snapshot.exists()) {
+      area.innerHTML = '<p>받은 전투 요청이 없습니다.</p>';
+      return;
+    }
+
+    const data = snapshot.val();
+    for (const fromUid in data) {
+      if (!data.hasOwnProperty(fromUid)) continue;
+      const { from, team } = data[fromUid];
+
+      const div = document.createElement('div');
+      div.className = 'request-card';
+      div.innerHTML = `
+        <p><strong>${from}</strong> 님이 전투를 요청했습니다. (팀: ${team})</p>
+        <button class="accept-btn" onclick="acceptRequest('${fromUid}')">수락</button>
+        <button class="reject-btn" onclick="rejectRequest('${fromUid}')">거절</button>
+      `;
+      area.appendChild(div);
+    }
+  });
+}
+
+window.acceptRequest = async function(reqId) {
+  try {
+    const opponentSnap = await get(ref(db, `users/${reqId}`));
+    if (!opponentSnap.exists()) {
+      alert("상대 정보를 찾을 수 없습니다.");
+      return;
+    }
+    const opponent = opponentSnap.val();
+
+    const matchId = `${reqId}_${currentUser.uid}_match`;
+    const matchRef = ref(db, `matches/${matchId}`);
+
+    await set(matchRef, {
+      player1: { uid: reqId, nickname: opponent.nickname, team: opponent.team },
+      player2: { uid: currentUser.uid, nickname: currentNickname, team: currentTeam },
+      accepted: {
+        [reqId]: true,
+        [currentUser.uid]: true
+      },
+      status: "waiting",
+      timestamp: Date.now()
+    });
+
+    await remove(ref(db, `battle_requests/${currentUser.uid}/${reqId}`));
+    alert("전투가 생성되었습니다. 메인페이지에서 확인하세요.");
+  } catch (e) {
+    console.error("❌ 수락 실패:", e);
+    alert("수락 중 오류 발생");
+  }
+};
+
+window.rejectRequest = async function(reqId) {
+  try {
+    await remove(ref(db, `battle_requests/${currentUser.uid}/${reqId}`));
+    alert("전투 요청을 거절했습니다.");
+  } catch (e) {
+    console.error("❌ 거절 실패:", e);
+    alert("거절 중 오류 발생");
+  }
+};
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    alert("로그인이 필요합니다.");
+    window.location.href = 'index.html';
+    return;
+  }
+
+  currentUser = user;
+
+  try {
+    const userSnap = await get(child(ref(db), `users/${user.uid}`));
+    if (userSnap.exists()) {
+      const userData = userSnap.val();
+      currentNickname = userData.nickname || '';
+      currentTeam = userData.team || '';
+
+      const onlineRef = ref(db, `users/${user.uid}/online`);
+      await set(onlineRef, true);
+      onDisconnect(onlineRef).set(false);
+
+      loadBattleRequests();
+    } else {
+      document.getElementById("request-area").innerHTML = "<p>사용자 정보를 찾을 수 없습니다.</p>";
+    }
+  } catch (err) {
+    console.error("❌ 사용자 정보 로딩 실패:", err);
+    document.getElementById("request-area").innerHTML = "<p>오류 발생: 사용자 정보를 불러올 수 없습니다.</p>";
+  }
+});
+</script>
+
+</body>
+</html>

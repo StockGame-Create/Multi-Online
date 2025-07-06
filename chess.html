@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SVG 체스 게임 - 체크 감지 포함</title>
+  <style>
+  body {
+  margin: 0;
+  background: #f0f0f0;
+  font-family: 'Arial', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+    .chess-board {
+      position: relative; /* 추가 */
+      display: grid;
+      grid-template-columns: repeat(8, 80px);
+      grid-template-rows: repeat(8, 80px);
+      border: 4px solid #222;
+    }
+    .cell {
+      width: 80px;
+      height: 80px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      transition: background 0.3s;
+    }
+    .white { background: #eeeed2; }
+    .black { background: #769656; }
+    .selected { outline: 3px solid red; }
+    .highlight::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: rgba(255, 0, 0, 0.6);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .check::after {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border: 3px solid red;
+      border-radius: 4px;
+    }
+    .piece {
+      width: 80%;
+      height: 80%;
+      transition: transform 0.3s;
+    }
+    .moving {
+      transform: scale(1.2);
+    }
+    .player-info {
+  width: 640px;
+  padding: 10px 15px;
+  margin: 10px auto;
+  background: #ffffff;
+  border: 2px solid #333;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  font-family: 'Arial', sans-serif;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
+}
+
+.player-info.top {
+  margin-bottom: 5px;
+}
+
+.player-info.bottom {
+  margin-top: 5px;
+}
+
+.player-info .nickname {
+  font-weight: bold;
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.chess-board {
+  display: grid;
+  grid-template-columns: repeat(8, 80px);
+  grid-template-rows: repeat(8, 80px);
+  border: 4px solid #222;
+}
+
+.player-info {
+  width: 640px;
+  padding: 10px 15px;
+  background: #ffffff;
+  border: 2px solid #333;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 18px;
+  margin: 10px 0;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
+}
+
+.player-info.active {
+  background: #f0f8ff;
+  border-color: #0077cc;
+}
+  </style>
+</head>
+<body>
+
+
+  <div style="position: absolute; top: 20px; text-align: center; font-size: 24px;">
+  현재 턴: <span id="turn-indicator">흰색</span>
+</div>
+<div style="position: absolute; top: 60px; text-align: center; font-size: 20px;">
+  당신은 <span id="player-color-label">로딩 중...</span> 플레이어입니다.
+</div>
+  <div id="promotion-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:white; border:2px solid #333; padding:20px; z-index:9999; text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.5); border-radius:8px;">
+
+ <p>승급할 기물을 선택하세요:</p>
+  <button onclick="promote('q')">♛ 퀸</button>
+  <button onclick="promote('r')">♜ 룩</button>
+  <button onclick="promote('b')">♝ 비숍</button>
+  <button onclick="promote('n')">♞ 나이트</button>
+</div>
+
+ <div class="game-container">
+    <div id="black-info" class="player-info top"></div>
+
+    <div id="board" class="chess-board"></div>
+
+    <div id="white-info" class="player-info bottom"></div>
+  </div>
+
+
+
+  <script type="module">
+  // Firebase SDK 불러오기
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, onValue, set, get, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { child } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCkH8VYctflhZQh5_g_QQ2X9B-dt8h_uSA",
+      authDomain: "chessstrock.firebaseapp.com",
+      projectId: "chessstrock",
+      storageBucket: "chessstrock.firebasestorage.app",
+      messagingSenderId: "1041655877297",
+      appId: "1:1041655877297:web:d35e9b5838ea2fcc5a1c90",
+      measurementId: "G-6JCL5Z363K"
+    };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+const urlParams = new URLSearchParams(window.location.search);
+const matchId = urlParams.get('matchId');  // default_match 제거!
+if (!matchId) {
+  alert("matchId가 URL에 없습니다. main.html에서 정상적으로 들어오세요.");
+  window.location.href = "main.html";
+}
+console.log("🎯 현재 matchId:", matchId);
+const gameRef = ref(db, `games/${matchId}`);
+
+
+const auth = getAuth();
+setPersistence(auth, browserLocalPersistence);
+
+let myColor = null;
+  let myUid = null; 
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+   myUid = user.uid;
+    console.log("🔥 로그인된 사용자:", user.email || user.uid);
+ // 👈 현재 사용자 uid 저장
+    
+    init(); // ✅ 로그인 후에 게임 초기화
+  } else {
+    alert("로그인이 필요합니다. 메인 화면으로 이동합니다.");
+    window.location.href = "index.html";
+  }
+});
+
+
+
+
+    const svgMap = {
+      'r': 'https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg',
+      'n': 'https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg',
+      'b': 'https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg',
+      'q': 'https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg',
+      'k': 'https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg',
+      'p': 'https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg',
+      'R': 'https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg',
+      'N': 'https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg',
+      'B': 'https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg',
+      'Q': 'https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg',
+      'K': 'https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg',
+      'P': 'https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg'
+    };
+
+    const initial = [
+      "rnbqkbnr",
+      "pppppppp",
+      "........",
+      "........",
+      "........",
+      "........",
+      "PPPPPPPP",
+      "RNBQKBNR"
+    ];
+
+let hasMoved = {
+  'K_white': false,
+  'R_white_a': false, // 왼쪽 룩 (a1)
+  'R_white_h': false, // 오른쪽 룩 (h1)
+  'K_black': false,
+  'R_black_a': false, // a8
+  'R_black_h': false  // h8
+};
+
+    let enPassantTarget = null; // 앙파상 타겟 칸: [row, col] 또는 null
+
+    let board = [];
+    let turn = 'white';
+    let selected = null;
+    const boardElement = document.getElementById('board');
+
+
+
+onValue(gameRef, (snapshot) => {
+  if (isLocalChange) {
+    isLocalChange = false;
+    return;
+  }
+  const data = snapshot.val();
+  if (data) {
+    board = data.board.map(row => row.split(''));
+    turn = data.turn;
+    whitePlayerId = data.whitePlayerId || null;
+    blackPlayerId = data.blackPlayerId || null;
+
+        // 🔍 여기서 로그 추가
+    console.log("📦 Firebase로부터 받은 game 상태:");
+    console.log("⚪ whitePlayerId:", whitePlayerId);
+    console.log("⚫ blackPlayerId:", blackPlayerId);
+    console.log("🎮 현재 턴:", turn);
+    updatePlayerInfoUI();  // ✅ 이 줄을 추가하세요
+    drawBoard();
+  }
+});
+
+
+    function isWhite(ch) {
+      return ch >= 'A' && ch <= 'Z';
+    }
+
+    function findKing(isW) {
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (!board[r]) continue;
+          const ch = board[r][c];
+          if ((isW && ch === 'K') || (!isW && ch === 'k')) return [r, c];
+        }
+      }
+      return null;
+    }
+
+    function isCheck(isW) {
+      const kingPos = findKing(isW);
+      if (!kingPos) return false;
+      const [kr, kc] = kingPos;
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (!board[r]) continue;
+          const ch = board[r][c];
+          if (ch !== '.' && isWhite(ch) !== isW) {
+            const moves = getBasicMoves(r, c);
+            if (moves.some(([mr, mc]) => mr === kr && mc === kc)) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+  function drawBoard(myUid) {
+      boardElement.innerHTML = '';
+      let highlights = [];
+        if (!Array.isArray(board) || board.length !== 8 || board.some(row => row.length !== 8)) {
+    console.warn("⛔ drawBoard 호출 시 board가 잘못된 상태:", board);
+    return;
+  }
+      if (selected) {
+        const [sRow, sCol] = selected;
+        highlights = getLegalMoves(sRow, sCol);
+      }
+      const checkKing = findKing(turn === 'white');
+      const inCheck = isCheck(turn === 'white');
+const isFlipped = (myColor === 'black'); // OK
+
+for (let i = 0; i < 8; i++) {
+  const row = isFlipped ? 7 - i : i;
+  for (let j = 0; j < 8; j++) {
+    const col = isFlipped ? 7 - j : j;
+          const cell = document.createElement('div');
+          const piece = board[row][col];
+          cell.className = `cell ${(row + col) % 2 ? 'black' : 'white'}`;
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+
+          if (selected && selected[0] === row && selected[1] === col) {
+            cell.classList.add('selected');
+          }
+
+         if (highlights.some(pos => pos[0] === row && pos[1] === col)) {
+  cell.classList.add('highlight');
+}
+
+
+          if (inCheck && checkKing && row === checkKing[0] && col === checkKing[1]) {
+            cell.classList.add('check');
+          }
+
+          if (piece !== '.') {
+            const img = document.createElement('img');
+            img.className = 'piece';
+            img.src = svgMap[piece];
+            cell.appendChild(img);
+          }
+          
+
+          cell.addEventListener('click', handleClick);
+          boardElement.appendChild(cell);
+         document.getElementById("player-color-label").innerText =
+  myColor === "white" ? "흰색" : "검은색";
+document.getElementById('turn-indicator').style.color = (turn === 'white') ? 'black' : 'darkred';
+document.getElementById("turn-indicator").innerText = (turn === 'white') ? '흰색' : '검은색';
+document.getElementById("turn-indicator").style.color = (turn === 'white') ? 'black' : 'darkred';
+
+        }
+      }
+    }
+    function updatePlayerInfoUI() {
+  const whiteBox = document.getElementById("white-info");
+  const blackBox = document.getElementById("black-info");
+
+  const isWhiteTurn = (turn === "white");
+
+  whiteBox.innerHTML = `
+    <span class="nickname">🎖 ${whitePlayerId?.nickname || "백 플레이어"}</span>
+    <span class="team">🛡 ${whitePlayerId?.team || "팀 없음"}</span>
+  `;
+
+  blackBox.innerHTML = `
+    <span class="nickname">🎖 ${blackPlayerId?.nickname || "흑 플레이어"}</span>
+    <span class="team">🛡 ${blackPlayerId?.team || "팀 없음"}</span>
+  `;
+
+  whiteBox.classList.toggle("active", isWhiteTurn);
+  blackBox.classList.toggle("active", !isWhiteTurn);
+}
+
+
+    let pendingPromotion = null; // { row, col, isWhite, callback }
+
+function showPromotionModal(row, col, isW, callback) {
+
+  pendingPromotion = { row, col, isWhite: isW, callback };
+  document.getElementById('promotion-modal').style.display = 'block';
+}
+
+
+
+function handleClick(e) {
+
+        const uid = auth.currentUser?.uid;
+const isMyTurn =
+  (turn === 'white' && uid === whitePlayerId?.uid) ||
+  (turn === 'black' && uid === blackPlayerId?.uid);
+console.log("🎯 클릭 발생!");
+console.log("🧩 현재 사용자 uid:", uid);
+console.log("⚪ whitePlayerId:", whitePlayerId);
+console.log("⚫ blackPlayerId:", blackPlayerId);
+console.log("🎮 현재 턴:", turn);
+console.log("🕹️ isMyTurn 계산 결과:", isMyTurn);
+// handleClick 함수 내부에서 추가
+if (!isMyTurn) {
+  alert("당신의 차례가 아닙니다!");
+  return;
+}
+
+function promote(piece) {
+  const { row, col, isWhite, callback } = pendingPromotion;
+  board[row][col] = isWhite ? piece.toUpperCase() : piece;
+  document.getElementById('promotion-modal').style.display = 'none';
+  pendingPromotion = null;
+
+  // 턴 변경 및 저장
+  turn = (turn === 'white') ? 'black' : 'white';
+  isLocalChange = true;
+  saveGameState();
+  drawBoard();
+
+  // 승급 후 체크메이트 여부 콜백 처리 (콜백 내부에 턴 변경 없어야 함)
+  if (typeof callback === 'function') {
+    callback();
+  }
+}
+
+window.promote = promote;
+
+  const row = parseInt(e.currentTarget.dataset.row);
+  const col = parseInt(e.currentTarget.dataset.col);
+  const piece = board[row][col];
+const isOwn = myColor === 'white' ? isWhite(piece) : (!isWhite(piece) && piece !== '.');
+
+  if (selected) {
+    const [sRow, sCol] = selected;
+    const moves = getLegalMoves(sRow, sCol);
+    if (moves.some(([r, c]) => r === row && c === col)) {
+      const temp = JSON.parse(JSON.stringify(board));
+
+      // 캐슬링 처리
+      const selectedPiece = board[sRow][sCol];
+      const isW = isWhite(selectedPiece);
+
+      // 기본 이동
+      board[row][col] = selectedPiece;
+      board[sRow][sCol] = '.';
+
+      // 캐슬링 조건: 킹이 두 칸 이동했을 때 룩도 같이 움직임
+      if (selectedPiece.toLowerCase() === 'k' && Math.abs(col - sCol) === 2) {
+        if (col === 6) { // 킹사이드 캐슬링
+          board[row][5] = board[row][7];
+          board[row][7] = '.';
+          // hasMoved 업데이트 (룩)
+          if (isW) hasMoved['R_white_h'] = true;
+          else hasMoved['R_black_h'] = true;
+        } else if (col === 2) { // 퀸사이드 캐슬링
+          board[row][3] = board[row][0];
+          board[row][0] = '.';
+          // hasMoved 업데이트 (룩)
+          if (isW) hasMoved['R_white_a'] = true;
+          else hasMoved['R_black_a'] = true;
+        }
+      }
+
+
+
+      // hasMoved 업데이트 (킹, 룩 이동 기록)
+      if (selectedPiece.toLowerCase() === 'k') {
+        if (isW) hasMoved['K_white'] = true;
+        else hasMoved['K_black'] = true;
+      }
+      if (selectedPiece.toLowerCase() === 'r') {
+        if (isW) {
+          if (sRow === 7 && sCol === 0) hasMoved['R_white_a'] = true;
+          else if (sRow === 7 && sCol === 7) hasMoved['R_white_h'] = true;
+        } else {
+          if (sRow === 0 && sCol === 0) hasMoved['R_black_a'] = true;
+          else if (sRow === 0 && sCol === 7) hasMoved['R_black_h'] = true;
+        }
+
+
+if (selectedPiece.toLowerCase() === 'p' && Math.abs(row - sRow) === 2) {
+  // 두 칸 전진한 폰의 바로 중간 칸을 enPassantTarget으로 설정
+  enPassantTarget = [(row + sRow) / 2, col];
+} else {
+  enPassantTarget = null; // 그 외는 초기화
+}
+      }
+      // 앙파상 처리: 폰이 대각선 이동했고 이동 칸이 빈칸일 경우
+// 이동 전에 폰이 대각선으로 이동했는지, 그리고 이동 목적지가 빈 칸인지 판단 (앙파상 조건)
+if (selectedPiece.toLowerCase() === 'p' && col !== sCol) {
+  // 이동 전에 빈 칸인지 확인(이동 후에는 이미 폰이 올라감)
+  // enPassantTarget과 일치하는지 확인하거나, 아래처럼 판단 가능
+  if (enPassantTarget && row === enPassantTarget[0] && col === enPassantTarget[1]) {
+    const dir = isWhite(selectedPiece) ? -1 : 1;
+    const capturedRow = row - dir;
+    const capturedCol = col;
+    board[capturedRow][capturedCol] = '.'; // 잡힌 폰 삭제
+  }
+}
+
+
+      // 이동 후 체크인지 확인
+// 이동 후 체크인지 확인
+if (isCheck(isWhite(selectedPiece))) {
+  // 상대방 턴 체크메이트 검사
+  const nextTurn = turn === 'white' ? 'black' : 'white';
+  if (isCheckMate(nextTurn)) {
+    // 체크메이트면 이동 인정 (게임 종료)
+    animateMove(sRow, sCol, row, col, () => {
+      alert(`체크메이트! ${nextTurn === 'white' ? '흰색' : '검은색'} 패배`);
+      // 필요시 게임 종료 처리 추가
+      turn = nextTurn;
+      drawBoard();
+    });
+    return;
+  } else {
+    // 체크 상태면 이동 무효
+    board = temp;
+    alert('자신이 체크 상태가 되는 수는 둘 수 없습니다.');
+    selected = null;
+    
+    return;
+  }
+} else {
+// drawBoard()를 먼저 호출하지 않고 animateMove 후에만 호출
+animateMove(sRow, sCol, row, col, () => {
+  const promoted = board[row][col];
+  if (promoted.toLowerCase() === 'p' && (row === 0 || row === 7)) {
+showPromotionModal(row, col, isWhite(promoted), () => {
+  // 승급 후 턴 변경과 저장은 promote 함수에서 처리되므로 여기선 하지 말 것
+  if (isCheckMate(turn === 'white')) {
+    alert(`체크메이트! ${turn === 'white' ? '흰색' : '검은색'} 패배`);
+  }
+  // drawBoard()는 이미 promote에서 호출됨
+});
+    return;
+  }
+
+turn = turn === 'white' ? 'black' : 'white';
+saveGameState();
+  if (isCheckMate(turn === 'white')) {
+    alert(`체크메이트! ${turn === 'white' ? '흰색' : '검은색'} 패배`);
+  }
+  drawBoard(); // 일반 이동 후 drawBoard
+});
+}
+
+
+      selected = null;
+    } else if (isOwn) {
+      selected = [row, col];
+    } else {
+      selected = null;
+    }
+  } else if (isOwn) {
+    selected = [row, col];
+  }
+  drawBoard();
+}
+
+
+let isLocalChange = false;
+
+function saveGameState() {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn("아직 로그인되지 않음. 저장 안 함.");
+    return;
+  }
+
+  isLocalChange = true;
+
+  // 기존 whitePlayerId, blackPlayerId를 보존하면서 board와 turn만 업데이트
+  update(gameRef, {
+    board: board.map(row => row.join('')),
+    turn: turn
+  });
+}
+
+
+
+
+function getBasicMoves(r, c) {
+  const piece = board[r][c];
+  if (!piece || piece === '.') return [];
+  const isW = isWhite(piece);
+  const moves = [];
+
+  // 연속 이동이 가능한 기물들을 위한 push 함수
+  const pushSlide = (dr, dc) => {
+    for (let i = 1; i < 8; i++) {
+      const nr = r + dr * i;
+      const nc = c + dc * i;
+      if (nr < 0 || nr >= 8 || nc < 0 || nc >= 8) break;
+      const target = board[nr][nc];
+      if (target === '.') {
+        moves.push([nr, nc]);
+      } else {
+        if (isWhite(target) !== isW) moves.push([nr, nc]);
+        break; // 막힘
+      }
+    }
+  };
+
+  // 단일 칸 이동용
+  const push = (nr, nc) => {
+    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+      const target = board[nr][nc];
+      if (target === '.' || isWhite(target) !== isW) moves.push([nr, nc]);
+    }
+  };
+
+  const dir = isW ? -1 : 1;
+
+  switch (piece.toLowerCase()) {
+    case 'p':
+      const front = r + dir;
+      // 앞 칸이 비어있어야 이동 가능
+      if (board[front] && board[front][c] === '.') {
+        moves.push([front, c]);
+        // 첫 이동이면 2칸 가능
+        if ((isW && r === 6) || (!isW && r === 1)) {
+          const doubleFront = r + 2 * dir;
+          if (board[doubleFront][c] === '.') {
+            moves.push([doubleFront, c]);
+          }
+        }
+      }
+      // 대각선 공격
+      for (const dc of [-1, 1]) {
+        const nr = r + dir;
+        const nc = c + dc;
+        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+          const target = board[nr][nc];
+          if (target !== '.' && isWhite(target) !== isW) {
+            moves.push([nr, nc]);
+          }
+        }
+      }
+      break;
+
+    case 'n': // 나이트
+      [[-2, -1], [-2, 1], [-1, -2], [-1, 2],
+       [1, -2], [1, 2], [2, -1], [2, 1]].forEach(([dr, dc]) => push(r + dr, c + dc));
+      break;
+
+    case 'b': // 비숍
+      [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([dr, dc]) => pushSlide(dr, dc));
+      break;
+
+    case 'r': // 룩
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dr, dc]) => pushSlide(dr, dc));
+      break;
+
+    case 'q': // 퀸
+      [[1, 0], [-1, 0], [0, 1], [0, -1],
+       [1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([dr, dc]) => pushSlide(dr, dc));
+      break;
+
+    case 'k': // 킹
+  [[1, 0], [-1, 0], [0, 1], [0, -1],
+   [1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([dr, dc]) => push(r + dr, c + dc));
+  break;
+
+  }
+
+  return moves;
+}
+
+// 캐슬링 가능한지 확인 함수
+function canCastle(r, c, side) {
+  // side: 'king' or 'queen'
+  const isW = isWhite(board[r][c]);
+  if (isCheck(isW)) return false; // 현재 체크 상태면 안됨
+
+// 흰색 캐슬링 검사 예시
+if (isW) {
+  if (side === 'king') {
+    if (hasMoved['K_white'] || hasMoved['R_white_h']) return false;
+    if (board[7][5] !== '.' || board[7][6] !== '.') return false;
+    // 여기서 true 대신 !isW 넘겨야 함!
+    if (isUnderAttack(7, 5, isW) || isUnderAttack(7, 6, isW)) return false;
+
+    return true;
+  } else {
+    if (hasMoved['K_white'] || hasMoved['R_white_a']) return false;
+    if (board[7][1] !== '.' || board[7][2] !== '.' || board[7][3] !== '.') return false;
+    if (isUnderAttack(7, 3, isW) || isUnderAttack(7, 2, isW)) return false;
+
+    return true;
+  }
+
+  } else {
+
+if (side === 'king') {
+  if (hasMoved['K_black'] || hasMoved['R_black_h']) return false;
+  if (board[0][5] !== '.' || board[0][6] !== '.') return false;
+if (isUnderAttack(0, 5, isW) || isUnderAttack(0, 6, isW)) return false;
+ // 수정
+  return true;
+} else {
+  if (hasMoved['K_black'] || hasMoved['R_black_a']) return false;
+  if (board[0][1] !== '.' || board[0][2] !== '.' || board[0][3] !== '.') return false;
+if (isUnderAttack(0, 3, isW) || isUnderAttack(0, 2, isW)) return false; // 수정
+  return true;
+}
+
+  }
+}
+
+// 적이 해당 칸 공격 중인지 확인 함수 (임시로 대충 구현)
+function isUnderAttack(r, c, isW) {
+  // isW: 칸을 수비하는 편이 백인지 아닌지
+  // 적 기물들이 (isW 반대) r,c 공격 가능한지 확인 (getBasicMoves 사용)
+  for (let rr = 0; rr < 8; rr++) {
+    for (let cc = 0; cc < 8; cc++) {
+      if (!board[rr]) continue;
+      const ch = board[rr][cc];
+      if (ch !== '.' && isWhite(ch) !== isW) {
+        const moves = getBasicMoves(rr, cc);
+        if (moves.some(([mr, mc]) => mr === r && mc === c)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+
+
+function getLegalMoves(r, c) {
+  const basicMoves = getBasicMoves(r, c);
+  const legal = [];
+
+  const piece = board[r][c];
+
+  for (const [nr, nc] of basicMoves) {
+    const temp = JSON.parse(JSON.stringify(board));
+    board[nr][nc] = board[r][c];
+    board[r][c] = '.';
+    if (!isCheck(isWhite(piece))) legal.push([nr, nc]);
+
+
+    board = temp;
+  }
+
+  // 캐슬링 후보 추가 ...
+
+
+
+  // 캐슬링 후보 추가 (킹인 경우)
+
+if (piece.toLowerCase() === 'k') {
+  // 여긴 기존의 getBasicMoves 외에 따로 처리되므로 board 수정 없이 legal에 추가
+  if (canCastle(r, c, 'king')) {
+    legal.push([r, 6]); // 캐슬링 위치는 고정임
+  }
+  if (canCastle(r, c, 'queen')) {
+    legal.push([r, 2]);
+  }
+}
+
+if (piece.toLowerCase() === 'p') {
+  const dir = isWhite(piece) ? -1 : 1;
+  for (const dc of [-1, 1]) {
+    const nr = r + dir;
+    const nc = c + dc;
+    if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+      // 앙파상 타겟 칸과 같으면 이동 후보로 추가
+      if (enPassantTarget && nr === enPassantTarget[0] && nc === enPassantTarget[1]) {
+        legal.push([nr, nc]);
+      }
+    }
+  }
+}
+
+
+  console.log(`[${r}, ${c}] legal moves:`, legal); 
+  return legal;
+}
+
+
+      let whitePlayerId = null;
+let blackPlayerId = null;
+
+function init() {
+  get(gameRef).then((snapshot) => {
+    if (!snapshot.exists()) {
+      // 게임이 아직 없을 경우: matches/{matchId}에서 복사
+      const matchInfoRef = ref(db, `matches/${matchId}`);
+      get(matchInfoRef).then((matchSnap) => {
+        if (matchSnap.exists()) {
+          const matchData = matchSnap.val();
+
+          board = initial.map(row => row.split('')); // 기본 보드
+          turn = 'white'; // 기본 턴
+          whitePlayerId = matchData.player1 || null;
+          blackPlayerId = matchData.player2 || null;
+
+          // games/{matchId}에 저장
+          set(gameRef, {
+            board: board.map(row => row.join('')),
+            turn,
+            whitePlayerId,
+            blackPlayerId
+          });
+          if (whitePlayerId?.uid === myUid) {
+  myColor = 'white';
+} else if (blackPlayerId?.uid === myUid) {
+  myColor = 'black';
+}
+set(gameRef, {
+  board: board.map(row => row.join('')),
+  turn,
+  whitePlayerId,
+  blackPlayerId
+}).then(() => {
+  drawBoard(); // ✅ 그 후에 호출
+});
+        } else {
+          alert("매치 정보가 없습니다.");
+          window.location.href = "main.html";
+        }
+      });
+    } else {
+// 게임 정보가 이미 존재할 경우
+const data = snapshot.val();
+whitePlayerId = data.whitePlayerId || null;
+blackPlayerId = data.blackPlayerId || null;
+board = data.board.map(row => row.split(''));
+turn = data.turn;
+
+// 💥 myColor 설정 누락!
+if (whitePlayerId?.uid === myUid) {
+  myColor = 'white';
+} else if (blackPlayerId?.uid === myUid) {
+  myColor = 'black';
+}
+
+drawBoard();
+    }
+  });
+}
+
+ function isCheckMate(isW) {
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const piece = board[r][c];
+      if (piece !== '.' && isWhite(piece) === isW) {
+        const moves = getLegalMoves(r, c);
+        if (moves.length > 0) {
+          return false; // 한 수라도 피할 수 있으면 체크메이트 아님
+        }
+      }
+    }
+  }
+  return isCheck(isW); // 체크 상태이며 피할 수 없는 경우 체크메이트
+}
+   
+
+function animateMove(fromRow, fromCol, toRow, toCol, callback) {
+  const fromCell = document.querySelector(`.cell[data-row="${fromRow}"][data-col="${fromCol}"]`);
+  const toCell = document.querySelector(`.cell[data-row="${toRow}"][data-col="${toCol}"]`);
+  const pieceImg = fromCell.querySelector('img');
+  if (!pieceImg || !toCell) {
+    callback();
+    return;
+  }
+
+  const clone = pieceImg.cloneNode();
+  const boardRect = boardElement.getBoundingClientRect();
+  const startRect = fromCell.getBoundingClientRect();
+  const endRect = toCell.getBoundingClientRect();
+
+  const deltaX = endRect.left - startRect.left;
+  const deltaY = endRect.top - startRect.top;
+
+  clone.style.position = 'absolute';
+  clone.style.left = `${startRect.left - boardRect.left}px`;
+  clone.style.top = `${startRect.top - boardRect.top}px`;
+  clone.style.width = '80px';
+  clone.style.height = '80px';
+  clone.style.transition = 'transform 0.3s ease';
+  clone.style.pointerEvents = 'none';
+  clone.style.zIndex = 100;
+  clone.style.transform = 'translate(0, 0)';
+
+  boardElement.appendChild(clone);
+
+  requestAnimationFrame(() => {
+    clone.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+  });
+
+  setTimeout(() => {
+    clone.remove();
+    callback(); // 이 안에서 drawBoard() 실행
+  }, 300);
+}
+
+
+
+    
+  </script>
+</body>
+</html>

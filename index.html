@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Chess 로그인</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #e3f2fd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    #login-box {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      width: 300px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: none;
+      border-radius: 5px;
+    }
+    input {
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #1976d2;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .google-btn {
+      background-color: #db4437;
+    }
+    #status {
+      margin-top: 15px;
+      text-align: center;
+      color: #d32f2f;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div id="login-box">
+    <h2>Multi-Online Ver. 10.2</h2>
+    <h2>pre-release</h2>
+    <h2>(Made by 범서)</h2>
+    <input type="email" id="email" placeholder="이메일">
+    <input type="password" id="password" placeholder="비밀번호">
+    <button id="loginBtn">로그인</button>
+    <button id="signupBtn">회원가입</button>
+    <button class="google-btn" id="googleLoginBtn">Google 계정으로 로그인</button>
+    <div id="status"></div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged,
+      GoogleAuthProvider,
+      signInWithPopup
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCkH8VYctflhZQh5_g_QQ2X9B-dt8h_uSA",
+      authDomain: "chessstrock.firebaseapp.com",
+      projectId: "chessstrock",
+      storageBucket: "chessstrock.firebasestorage.app",
+      messagingSenderId: "1041655877297",
+      appId: "1:1041655877297:web:d35e9b5838ea2fcc5a1c90",
+      measurementId: "G-6JCL5Z363K"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    const provider = new GoogleAuthProvider();
+
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const statusDiv = document.getElementById("status");
+
+    // 유저 정보 존재 확인 후 이동 함수
+    async function redirectByUserData(user) {
+      try {
+        const dbRef = ref(db);
+        const snapshot = await get(child(dbRef, `users/${user.uid}`));
+        if (snapshot.exists()) {
+          window.location.href = 'main.html';
+        } else {
+          window.location.href = 'noob.html';
+        }
+      } catch (error) {
+        console.error("DB 조회 오류:", error);
+        // 오류 시 일단 noob.html로
+        window.location.href = 'noob.html';
+      }
+    }
+
+    // 로그인 처리
+    async function handleLogin(email, password) {
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        statusDiv.textContent = "로그인 성공! 잠시만 기다려주세요...";
+      } catch (error) {
+        statusDiv.textContent = "로그인 실패: " + error.message;
+      }
+    }
+
+    // 회원가입 처리
+    async function handleSignup(email, password) {
+      try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        statusDiv.textContent = "회원가입 성공! 자동 로그인 중...";
+      } catch (error) {
+        statusDiv.textContent = "회원가입 실패: " + error.message;
+      }
+    }
+
+    // 구글 로그인 처리
+    async function handleGoogleLogin() {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+        statusDiv.textContent = `환영합니다, ${user.displayName}님! 잠시만 기다려주세요...`;
+      } catch (error) {
+        statusDiv.textContent = "구글 로그인 실패: " + error.message;
+      }
+    }
+
+    document.getElementById("loginBtn").addEventListener("click", () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+      if (!email || !password) {
+        statusDiv.textContent = "이메일과 비밀번호를 입력해주세요.";
+        return;
+      }
+      handleLogin(email, password);
+    });
+
+    document.getElementById("signupBtn").addEventListener("click", () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+      if (!email || !password) {
+        statusDiv.textContent = "이메일과 비밀번호를 입력해주세요.";
+        return;
+      }
+      handleSignup(email, password);
+    });
+
+    document.getElementById("googleLoginBtn").addEventListener("click", () => {
+      handleGoogleLogin();
+    });
+
+    // 로그인 상태 변경 감지 → 자동 리다이렉트 처리
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        // 유저 정보가 있는지 확인하고 이동
+        redirectByUserData(user);
+      }
+    });
+  </script>
+</body>
+</html>
